@@ -45,13 +45,15 @@ class QueueWorkerCommand extends AbstractCommand
             $job = new $class($payload);
 
             if (! ($job instanceof QueueJobInterface)) {
-                $output->writeLine("❌ Job $class does not implement QueueJobInterface.\n");
+                $output->writeLine("❌ Job $class does not implement QueueJobInterface.");
             }
 
-            $output->writeLine("🚨 Job $class started.\n");
+            $start = microtime(true);
+            $output->writeLine("🚨 Job $class started at " . date('d.m.Y H:i:s:v', time()) . ".");
+            $output->writeEmptyLine();
             $job->handle($output);
             $output->writeEmptyLine();
-            $output->writeLine( "✅ Job $class processed.\n");
+            $output->writeLine( "✅ Job $class processed in " . number_format(microtime(true) - $start, 5) . " seconds.\n");
             $output->writeLine('---');
             $output->writeEmptyLine();
 
