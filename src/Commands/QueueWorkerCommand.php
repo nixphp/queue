@@ -23,14 +23,14 @@ class QueueWorkerCommand extends AbstractCommand
 
     public function run(Input $input, Output $output): int
     {
-        $once = $input->getArgument('once');
+        $once = $input->getArgument('once') === 'true';
 
         do {
             $jobData = queue()->pop();
 
             if (!$jobData) {
                 if ($once) return static::SUCCESS;
-                sleep(1);
+                sleep(5);
                 continue;
             }
 
@@ -44,12 +44,18 @@ class QueueWorkerCommand extends AbstractCommand
 
             $job = new $class($payload);
 
-            if ($job instanceof QueueJobInterface) {
-                $job->handle();
-                $output->writeLine( "✅ Job $class processed.\n");
-            } else {
+            if (! ($job instanceof QueueJobInterface)) {
                 $output->writeLine("❌ Job $class does not implement QueueJobInterface.\n");
             }
+
+            $output->writeLine("🚨 Job $class started.\n");
+            $job->handle($output);
+            $output->writeEmptyLine();
+            $output->writeLine( "✅ Job $class processed.\n");
+            $output->writeLine('---');
+            $output->writeEmptyLine();
+
+            ob_flush();
 
             if ($once) return static::SUCCESS;
 
