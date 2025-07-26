@@ -75,13 +75,13 @@ queue()->push(SendWelcomeEmail::class, ['email' => 'user@example.com']);
 Run the CLI worker to process jobs:
 
 ```bash
-php nix queue:work
+php bin/nix queue:work false
 ```
 
 You can also process a single job only:
 
 ```bash
-php nix queue:work --once
+php bin/nix queue:work true
 ```
 
 ---
