@@ -1,0 +1,37 @@
+{
+  "name": "nixphp/queue",
+  "description": "NixPHP Queue Plugin for asynchronous jobs.",
+  "minimum-stability": "stable",
+  "license": "MIT",
+  "type": "nixphp-plugin",
+  "authors": [
+    {
+      "name": "Flo Knapp",
+      "email": "office@florianknapp.de"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "NixPHP\\Queue\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/",
+      "Fixtures\\": "tests/Fixtures/"
+    }
+  },
+  "require": {
+    "php": ">=8.3",
+    "nixphp/framework": "dev-main",
+    "nixphp/database": "dev-main",
+    "nixphp/cli": "dev-main"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^12.1",
+    "phpunit/php-code-coverage": "^12.1"
+  },
+  "scripts": {
+    "test": "phpunit --colors=always"
+  }
+}
