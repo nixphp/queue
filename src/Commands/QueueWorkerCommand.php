@@ -8,6 +8,7 @@ use NixPHP\Cli\Core\AbstractCommand;
 use NixPHP\Cli\Core\Input;
 use NixPHP\Cli\Core\Output;
 use NixPHP\Queue\Core\QueueJobInterface;
+use function NixPHP\config;
 
 class QueueWorkerCommand extends AbstractCommand
 {
@@ -37,30 +38,49 @@ class QueueWorkerCommand extends AbstractCommand
 
             if (!$jobData) {
                 if ($once) return static::SUCCESS;
-                sleep(5);
+                sleep(1);
+                echo 'Waiting for new job...' . "\r";
                 continue;
             }
 
             $class = $jobData['class'];
             $payload = $jobData['payload'];
+            $attempts = $payload['_attempts'] ?? 0;
 
             if (!class_exists($class)) {
-                $output->writeLine("⚠️ Job class $class not found.\n");
+                $output->writeLine("⚠️ Job class $class not found.");
                 continue;
             }
 
-            $job = new $class($payload);
+            try {
+                $job = new $class($payload, $output);
 
-            if (! ($job instanceof QueueJobInterface)) {
-                $output->writeLine("❌ Job $class does not implement QueueJobInterface.");
+                if (!($job instanceof QueueJobInterface)) {
+                    throw new \RuntimeException("$class does not implement QueueJobInterface.");
+                }
+
+                $output->writeLine("🚨 Job $class started (try $attempts)...");
+
+                $start = microtime(true);
+                $job->handle($output);
+                $output->writeLine("✅ Job $class done in " . number_format(microtime(true) - $start, 5) . "s.");
+
+            } catch (\Throwable $e) {
+                $attempts++;
+                $output->writeLine("⚠️ Job $class failed: {$e->getMessage()} (attempt $attempts)");
+
+                if ($attempts < config('queue:max_attempts', 3)) {
+                    $payload['_attempts'] = $attempts;
+                    sleep(config('queue:retry_delay', 5));
+                    queue()->push($class, $payload);
+                    $output->writeLine("🔁 Retrying $class...");
+                } else {
+                    queue()->driver()->deadletter($class, $payload, $e);
+                    $output->writeLine("❌ Giving up on $class after $attempts attempts.");
+                    \NixPHP\log()->error('NixPHP Worker: Error still persisted after ' . $attempts . ' attempts: ' . $e->getMessage());
+                }
             }
 
-            $start = microtime(true);
-            $output->writeLine("🚨 Job $class started at " . date('d.m.Y H:i:s:v', time()) . ".");
-            $output->writeEmptyLine();
-            $job->handle($output);
-            $output->writeEmptyLine();
-            $output->writeLine( "✅ Job $class processed in " . number_format(microtime(true) - $start, 5) . " seconds.\n");
             $output->writeLine('---');
             $output->writeEmptyLine();
 

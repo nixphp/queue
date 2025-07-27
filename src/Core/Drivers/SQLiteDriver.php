@@ -2,7 +2,9 @@
 
 namespace NixPHP\Queue\Core\Drivers;
 
-class SQLiteQueue implements QueueDriverInterface
+use NixPHP\Queue\Core\QueueDriverInterface;
+
+class SQLiteDriver implements QueueDriverInterface
 {
     protected \PDO $db;
 

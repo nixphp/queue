@@ -2,7 +2,6 @@
 
 namespace NixPHP\Queue\Core;
 
-use NixPHP\Queue\Core\Drivers\QueueDriverInterface;
 use function NixPHP\app;
 
 class Queue
@@ -23,6 +22,11 @@ class Queue
     public function pop(): ?array
     {
         return $this->driver->dequeue();
+    }
+
+    public function driver(): QueueDriverInterface
+    {
+        return $this->driver;
     }
 
     public function pushAndRun(string $class, array $payload = []): void
