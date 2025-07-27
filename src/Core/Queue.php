@@ -30,10 +30,10 @@ class Queue
         $this->push($class, $payload);
 
         $basePath = app()->getBasePath();
-        $command = 'php .' . $basePath . '/vendor/bin/nix queue:worker --once';
+        $command = 'cd ' . $basePath . ' && ./vendor/bin/nix queue:worker --once';
 
         // Fire off a background PHP process to handle the next job
-        exec($command . ' > /dev/null 2>&1 &', $output);
+        exec($command . ' > /dev/null 2>&1 &');
     }
 
 }
