@@ -10,11 +10,13 @@ use function NixPHP\config;
 class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
 {
 
+    public function __construct(private readonly ?string $queuePath = null, private readonly ?string $deadLetterPath = null) {}
+
     public function enqueue(string $class, array $payload): void
     {
         $id = $payload['_job_id'] = $payload['_job_id'] ?? bin2hex(random_bytes(8));
 
-        $basePath = app()->getBasePath() . '/storage/queue';
+        $basePath = $this->queuePath ?? config('queue:path', app()->getBasePath() . '/storage/queue');
         if (!is_dir($basePath)) {
             mkdir($basePath, 0755, true);
         }
@@ -26,7 +28,7 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
 
     public function dequeue(): ?array
     {
-        $basePath = app()->getBasePath() . '/storage/queue';
+        $basePath = $this->queuePath ?? config('queue:path', app()->getBasePath() . '/storage/queue');
         $files = glob($basePath . '/*.job');
         sort($files); // FIFO
 
@@ -47,8 +49,7 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
     {
         $id = $payload['_job_id'];
 
-        $basePath = app()->getBasePath() . '/storage/queue/deadletter';
-        $path = config('queue:deadletter_path', $basePath);
+        $path = $this->deadLetterPath ?? config('queue:deadletterPath', app()->getBasePath() . '/storage/queue/deadletter');
 
         if (!is_dir($path)) {
             mkdir($path, 0777, true);
@@ -68,13 +69,13 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
 
     public function retryFailed(bool $keep = false): int
     {
-        $basePath = app()->getBasePath() . '/storage/queue/deadletter';
-        $deadDir = config('queue:deadletter_path', $basePath);
-        if (!is_dir($deadDir)) {
+        $path = $this->deadLetterPath ?? config('queue:deadletterPath', app()->getBasePath() . '/storage/queue/deadletter');
+
+        if (!is_dir($path)) {
             return 0;
         }
 
-        $files = glob($deadDir . '/*.job');
+        $files = glob($path . '/*.job');
         $count = 0;
 
         foreach ($files as $file) {

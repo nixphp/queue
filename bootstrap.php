@@ -10,5 +10,7 @@ command()->add(QueueWorkerCommand::class);
 command()->add(QueueRetryFailedCommand::class);
 
 app()->container()->set('queue', function() {
-    return new Queue(new FileDriver());
+    $qPath = app()->getBasePath() . '/storage/queue';
+    $dPath = app()->getBasePath() . '/storage/queue/deadletter';
+    return new Queue(new FileDriver($qPath, $dPath));
 });

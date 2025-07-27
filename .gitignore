@@ -1,2 +1,4 @@
 .idea/
 vendor/
+tests/Fixtures/storage
+.phpunit.result.cache

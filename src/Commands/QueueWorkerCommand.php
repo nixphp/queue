@@ -7,6 +7,7 @@ namespace NixPHP\Queue\Commands;
 use NixPHP\Cli\Core\AbstractCommand;
 use NixPHP\Cli\Core\Input;
 use NixPHP\Cli\Core\Output;
+use NixPHP\Queue\Core\QueueDeadletterDriverInterface;
 use NixPHP\Queue\Core\QueueJobInterface;
 use function NixPHP\config;
 
@@ -53,32 +54,43 @@ class QueueWorkerCommand extends AbstractCommand
             }
 
             try {
+                $attempts++;
                 $job = new $class($payload, $output);
 
                 if (!($job instanceof QueueJobInterface)) {
                     throw new \RuntimeException("$class does not implement QueueJobInterface.");
                 }
 
-                $output->writeLine("🚨 Job $class started (try $attempts)...");
+                $output->writeLine("🚨 Job $class started (try $attempts))...");
 
                 $start = microtime(true);
                 $job->handle($output);
                 $output->writeLine("✅ Job $class done in " . number_format(microtime(true) - $start, 5) . "s.");
 
             } catch (\Throwable $e) {
-                $attempts++;
+
                 $output->writeLine("⚠️ Job $class failed: {$e->getMessage()} (attempt $attempts)");
 
-                if ($attempts < config('queue:max_attempts', 3)) {
+                if ($attempts >= config('queue:max_attempts', 3)) {
+
+                    $driver = queue()->driver();
+
+                    if ($driver instanceof QueueDeadletterDriverInterface) {
+                        $driver->deadletter($class, $payload, $e);
+                    }
+
+                    $output->writeLine("❌ Giving up on $class after $attempts attempts.");
+                    \NixPHP\log()->error('NixPHP Worker: Error still persisted after ' . $attempts . ' attempts: ' . $e->getMessage());
+
+                } else {
+
                     $payload['_attempts'] = $attempts;
                     sleep(config('queue:retry_delay', 5));
                     queue()->push($class, $payload);
                     $output->writeLine("🔁 Retrying $class...");
-                } else {
-                    queue()->driver()->deadletter($class, $payload, $e);
-                    $output->writeLine("❌ Giving up on $class after $attempts attempts.");
-                    \NixPHP\log()->error('NixPHP Worker: Error still persisted after ' . $attempts . ' attempts: ' . $e->getMessage());
+
                 }
+
             }
 
             $output->writeLine('---');
