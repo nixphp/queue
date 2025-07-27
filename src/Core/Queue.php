@@ -3,6 +3,7 @@
 namespace NixPHP\Queue\Core;
 
 use NixPHP\Queue\Core\Drivers\QueueDriverInterface;
+use function NixPHP\app;
 
 class Queue
 {
@@ -22,6 +23,17 @@ class Queue
     public function pop(): ?array
     {
         return $this->driver->dequeue();
+    }
+
+    public function pushAndRun(string $class, array $payload = []): void
+    {
+        $this->push($class, $payload);
+
+        $basePath = app()->getBasePath();
+        $command = 'php .' . $basePath . '/vendor/bin/nix queue:worker --once';
+
+        // Fire off a background PHP process to handle the next job
+        exec($command . ' > /dev/null 2>&1 &', $output);
     }
 
 }

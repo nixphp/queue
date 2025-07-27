@@ -16,16 +16,23 @@ class QueueWorkerCommand extends AbstractCommand
     protected function configure(): void
     {
         $this
-            ->setTitle('Queue worker')
+            ->setTitle('NixPHP Queue Worker')
             ->setDescription('Run the queue worker')
-            ->addArgument('once');
+            ->addOption('once');
     }
 
     public function run(Input $input, Output $output): int
     {
-        $once = $input->getArgument('once') === 'true';
+        if ($input->getOption('help')) {
+            $this->showHelp($output);
+            return self::SUCCESS;
+        }
+
+        $once = $input->getOption('once');
 
         do {
+            ob_flush();
+
             $jobData = queue()->pop();
 
             if (!$jobData) {
