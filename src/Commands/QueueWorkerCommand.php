@@ -16,6 +16,8 @@ class QueueWorkerCommand extends AbstractCommand
 {
     public const string NAME = 'queue:worker';
 
+    private const int SLEEP_DELAY = 1;
+
     protected function configure(): void
     {
         $this
@@ -34,19 +36,20 @@ class QueueWorkerCommand extends AbstractCommand
         $once = $input->getOption('once');
 
         do {
+
             ob_flush();
 
             $jobData = queue()->pop();
 
             if (!$jobData) {
                 if ($once) return static::SUCCESS;
-                sleep(1);
-                echo 'Waiting for new job...' . "\r";
+                echo "Waiting for new job...\r";
+                sleep(static::SLEEP_DELAY);
                 continue;
             }
 
-            $class = $jobData['class'];
-            $payload = $jobData['payload'];
+            $class    = $jobData['class'];
+            $payload  = $jobData['payload'];
             $attempts = $payload['_attempts'] ?? 0;
 
             if (!class_exists($class)) {
@@ -62,10 +65,13 @@ class QueueWorkerCommand extends AbstractCommand
                     throw new \RuntimeException("$class does not implement QueueJobInterface.");
                 }
 
-                $output->writeLine("🚨 Job $class started (try $attempts))...");
+                $date = date('Y-m-d H:i:s');
+
+                $output->writeLine("🚨 Job $class started at $date (attempt $attempts)...");
 
                 $start = microtime(true);
                 $job->handle($output);
+                $output->writeEmptyLine();
                 $output->writeLine("✅ Job $class done in " . number_format(microtime(true) - $start, 5) . "s.");
 
             } catch (\Throwable $e) {
@@ -96,8 +102,6 @@ class QueueWorkerCommand extends AbstractCommand
 
             $output->writeLine('---');
             $output->writeEmptyLine();
-
-            ob_flush();
 
             if ($once) return static::SUCCESS;
 

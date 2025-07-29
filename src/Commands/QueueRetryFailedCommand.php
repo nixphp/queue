@@ -28,8 +28,6 @@ class QueueRetryFailedCommand extends AbstractCommand
             return static::ERROR;
         }
 
-        ini_set('display_errors',1);
-
         $keep = $input->getOption('keep') ?? false;
         $count = $driver->retryFailed($keep);
 
