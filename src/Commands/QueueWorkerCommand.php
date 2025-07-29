@@ -10,6 +10,7 @@ use NixPHP\Cli\Core\Output;
 use NixPHP\Queue\Core\QueueDeadletterDriverInterface;
 use NixPHP\Queue\Core\QueueJobInterface;
 use function NixPHP\config;
+use function NixPHP\Queue\queue;
 
 class QueueWorkerCommand extends AbstractCommand
 {
