@@ -164,8 +164,8 @@ stdout_logfile=/var/log/nixphp/worker.out.log
 
 ## ✅ Requirements
 
-* `nixphp/framework` >= 1.0
-* `nixphp/cli` (required for worker commands)
+* `nixphp/framework` >= 0.1.0
+* `nixphp/cli` >= 0.1.0 (required for worker commands)
 
 ---
 
