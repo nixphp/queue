@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace NixPHP\Queue\Core;
 
 namespace NixPHP\Queue\Commands;
@@ -53,7 +55,7 @@ class QueueWorkerCommand extends AbstractCommand
             $attempts = $payload['_attempts'] ?? 0;
 
             if (!class_exists($class)) {
-                $output->writeLine("⚠️ Job class $class not found.");
+                $output->writeLine("⚠ Job class $class not found.");
                 continue;
             }
 
@@ -67,16 +69,16 @@ class QueueWorkerCommand extends AbstractCommand
 
                 $date = date('Y-m-d H:i:s');
 
-                $output->writeLine("🚨 Job $class started at $date (attempt $attempts)...");
+                $output->writeLine("🕛 Job $class started at $date (attempt $attempts)...");
 
                 $start = microtime(true);
-                $job->handle($output);
+                $job->execute($output);
                 $output->writeEmptyLine();
-                $output->writeLine("✅ Job $class done in " . number_format(microtime(true) - $start, 5) . "s.");
+                $output->writeLine("✔ Job $class done in " . number_format(microtime(true) - $start, 5) . "s.");
 
             } catch (\Throwable $e) {
 
-                $output->writeLine("⚠️ Job $class failed: {$e->getMessage()} (attempt $attempts)");
+                $output->writeLine("⚠ Job $class failed: {$e->getMessage()} (attempt $attempts)");
 
                 if ($attempts >= config('queue:max_attempts', 3)) {
 

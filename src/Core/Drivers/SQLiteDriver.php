@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace NixPHP\Queue\Core\Drivers;
 
 use NixPHP\Queue\Core\QueueDriverInterface;
