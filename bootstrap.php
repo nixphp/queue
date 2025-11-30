@@ -7,6 +7,7 @@ use NixPHP\Queue\Commands\QueueWorkerCommand;
 use NixPHP\Queue\Core\Drivers\FileDriver;
 use NixPHP\Queue\Core\Queue;
 use function NixPHP\app;
+use function NixPHP\CLI\command;
 
 command()->add(QueueWorkerCommand::class);
 command()->add(QueueRetryFailedCommand::class);

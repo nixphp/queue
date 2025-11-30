@@ -12,26 +12,40 @@ use function NixPHP\config;
 class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
 {
 
-    public function __construct(private readonly ?string $queuePath = null, private readonly ?string $deadLetterPath = null) {}
+    const string DEFAULT_QUEUE_PATH = '/storage/queue';
+    const string DEFAULT_DEADLETTER_PATH = '/storage/queue/deadletter';
+
+    public function __construct(
+        private readonly ?string $queuePath      = null,
+        private readonly ?string $deadLetterPath = null
+    ) {}
 
     public function enqueue(string $class, array $payload): void
     {
-        $id = $payload['_job_id'] = $payload['_job_id'] ?? bin2hex(random_bytes(8));
+        $id          = $payload['_job_id'] ?? bin2hex(random_bytes(8));
+        $defaultPath = app()->getBasePath() . self::DEFAULT_QUEUE_PATH;
+        $basePath    = $this->queuePath ?? config('queue:path', $defaultPath);
 
-        $basePath = $this->queuePath ?? config('queue:path', app()->getBasePath() . '/storage/queue');
         if (!is_dir($basePath)) {
             mkdir($basePath, 0755, true);
         }
 
+        $payload['_job_id'] = $id;
         $data = json_encode(['class' => $class, 'payload' => $payload]);
 
-        file_put_contents($basePath .'/' . $id . '.job', $data, FILE_APPEND);
+        file_put_contents(
+            sprintf('%s/%s.job', $basePath, $id),
+            $data,
+            FILE_APPEND
+        );
     }
 
     public function dequeue(): ?array
     {
-        $basePath = $this->queuePath ?? config('queue:path', app()->getBasePath() . '/storage/queue');
-        $files = glob($basePath . '/*.job');
+        $defaultPath = app()->getBasePath() . self::DEFAULT_QUEUE_PATH;
+        $basePath    = $this->queuePath ?? config('queue:path', $defaultPath);
+        $files       = glob($basePath . '/*.job');
+
         sort($files); // FIFO
 
         foreach ($files as $file) {
@@ -49,12 +63,12 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
 
     public function deadletter(string $class, array $payload, \Throwable $exception): void
     {
-        $id = $payload['_job_id'];
-
-        $path = $this->deadLetterPath ?? config('queue:deadletterPath', app()->getBasePath() . '/storage/queue/deadletter');
+        $id          = $payload['_job_id'];
+        $defaultPath = app()->getBasePath() . self::DEFAULT_DEADLETTER_PATH;
+        $path        = $this->deadLetterPath ?? config('queue:deadletterPath', $defaultPath);
 
         if (!is_dir($path)) {
-            mkdir($path, 0777, true);
+            mkdir($path, 0755, true);
         }
 
         $file = $path . '/' . $id . '.job';
@@ -71,7 +85,8 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
 
     public function retryFailed(bool $keep = false): int
     {
-        $path = $this->deadLetterPath ?? config('queue:deadletterPath', app()->getBasePath() . '/storage/queue/deadletter');
+        $defaultPath = app()->getBasePath() . self::DEFAULT_DEADLETTER_PATH;
+        $path        = $this->deadLetterPath ?? config('queue:deadletterPath', $defaultPath);
 
         if (!is_dir($path)) {
             return 0;

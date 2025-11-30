@@ -6,9 +6,9 @@ namespace NixPHP\Queue\Core;
 
 namespace NixPHP\Queue\Commands;
 
-use NixPHP\Cli\Core\AbstractCommand;
-use NixPHP\Cli\Core\Input;
-use NixPHP\Cli\Core\Output;
+use NixPHP\CLI\Core\AbstractCommand;
+use NixPHP\CLI\Core\Input;
+use NixPHP\CLI\Core\Output;
 use NixPHP\Queue\Core\QueueDeadletterDriverInterface;
 use NixPHP\Queue\Core\QueueJobInterface;
 use function NixPHP\config;
@@ -32,13 +32,13 @@ class QueueWorkerCommand extends AbstractCommand
     {
         if ($input->getOption('help')) {
             $this->showHelp($output);
+
             return self::SUCCESS;
         }
 
         $once = $input->getOption('once');
 
         do {
-
             ob_flush();
 
             $jobData = queue()->pop();
@@ -77,11 +77,9 @@ class QueueWorkerCommand extends AbstractCommand
                 $output->writeLine("✔ Job $class done in " . number_format(microtime(true) - $start, 5) . "s.");
 
             } catch (\Throwable $e) {
-
                 $output->writeLine("⚠ Job $class failed: {$e->getMessage()} (attempt $attempts)");
 
                 if ($attempts >= config('queue:max_attempts', 3)) {
-
                     $driver = queue()->driver();
 
                     if ($driver instanceof QueueDeadletterDriverInterface) {
@@ -90,16 +88,12 @@ class QueueWorkerCommand extends AbstractCommand
 
                     $output->writeLine("❌ Giving up on $class after $attempts attempts.");
                     \NixPHP\log()->error('NixPHP Worker: Error still persisted after ' . $attempts . ' attempts: ' . $e->getMessage());
-
                 } else {
-
                     $payload['_attempts'] = $attempts;
                     sleep(config('queue:retry_delay', 5));
                     queue()->push($class, $payload);
                     $output->writeLine("🔁 Retrying $class...");
-
                 }
-
             }
 
             $output->writeLine('---');
