@@ -137,8 +137,11 @@ To change the driver, register it manually:
 use NixPHP\Queue\Core\Queue;
 use NixPHP\Queue\Drivers\FileDriver;
 
-app()->set(Queue::class, fn() => new Queue(
-    new FileDriver(__DIR__ . '/storage/queue', __DIR__ . FileDriver::DEFAULT_QUEUE_PATH)
+app()->set(Queue::class, static fn() => new Queue(
+    new FileDriver(
+        __DIR__ . FileDriver::DEFAULT_QUEUE_PATH,
+        __DIR__ . FileDriver::DEFAULT_DEADLETTER_PATH
+        )
 ));
 ```
 
@@ -164,8 +167,8 @@ stdout_logfile=/var/log/nixphp/worker.out.log
 
 ## ✅ Requirements
 
-* `nixphp/framework` >= 0.1.0
-* `nixphp/cli` >= 0.1.0 (required for worker commands)
+* `nixphp/framework` ^0.1.0
+* `nixphp/cli` ^0.1.0 (required for worker commands)
 
 ---
 

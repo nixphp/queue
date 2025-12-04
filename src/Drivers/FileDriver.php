@@ -10,6 +10,7 @@ use Random\RandomException;
 use Throwable;
 use function NixPHP\app;
 use function NixPHP\config;
+use function NixPHP\guard;
 
 class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
 {
@@ -34,7 +35,7 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
      */
     public function enqueue(string $class, array $payload): void
     {
-        $id          = $payload['_job_id'] ?? bin2hex(random_bytes(8));
+        $id          = guard()->safePath($payload['_job_id'] ?? bin2hex(random_bytes(8)));
         $defaultPath = app()->getBasePath() . self::DEFAULT_QUEUE_PATH;
         $basePath    = $this->queuePath ?? config('queue:path', $defaultPath);
 
@@ -59,6 +60,10 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
         $defaultPath = app()->getBasePath() . self::DEFAULT_QUEUE_PATH;
         $basePath    = $this->queuePath ?? config('queue:path', $defaultPath);
         $files       = glob($basePath . '/*.job');
+
+        if ($files === false || $files === []) {
+            return null;
+        }
 
         sort($files); // FIFO
 
@@ -85,7 +90,7 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
      */
     public function deadletter(string $class, array $payload, \Throwable $exception): void
     {
-        $id          = $payload['_job_id'] ?? 'rand_' . bin2hex(random_bytes(8));
+        $id          = guard()->safePath($payload['_job_id'] ?? 'rand_' . bin2hex(random_bytes(8)));
         $defaultPath = app()->getBasePath() . self::DEFAULT_DEADLETTER_PATH;
         $path        = $this->deadLetterPath ?? config('queue:deadletterPath', $defaultPath);
 
