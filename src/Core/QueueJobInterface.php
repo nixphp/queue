@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NixPHP\Queue\Core;
 
-use NixPHP\Cli\Core\Output;
+use NixPHP\CLI\Core\Output;
 
 interface QueueJobInterface
 {
