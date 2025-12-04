@@ -55,7 +55,7 @@ class SendWelcomeEmail implements QueueJobInterface
 {
     public function __construct(protected array $payload) {}
 
-    public function handle(): void
+    public function execute(): void
     {
         // Send your email here
     }
@@ -80,7 +80,7 @@ queue()->pushAndRun(SendWelcomeEmail::class, ['email' => 'user@example.com']);
 
 This queues the job and immediately runs it in the background via a short-lived CLI process.
 
-Great for use cases like emails, logging, or notifications - without blocking the current request.
+Great for use cases like emails, logging, or notifications, without blocking the current request.
 
 ---
 
@@ -134,11 +134,11 @@ Included drivers:
 To change the driver, register it manually:
 
 ```php
-use NixPHP\Queue\Queue;
-use NixPHP\Queue\Drivers\FileQueue;
+use NixPHP\Queue\Core\Queue;
+use NixPHP\Queue\Drivers\FileDriver;
 
-app()->set('queue', fn() => new Queue(
-    new FileQueue(__DIR__ . '/storage/queue', __DIR__ . '/storage/queue/deadletter')
+app()->set(Queue::class, fn() => new Queue(
+    new FileDriver(__DIR__ . '/storage/queue', __DIR__ . FileDriver::DEFAULT_QUEUE_PATH)
 ));
 ```
 

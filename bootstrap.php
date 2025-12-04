@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use NixPHP\Queue\Commands\QueueRetryFailedCommand;
 use NixPHP\Queue\Commands\QueueWorkerCommand;
-use NixPHP\Queue\Core\Drivers\FileDriver;
 use NixPHP\Queue\Core\Queue;
+use NixPHP\Queue\Drivers\FileDriver;
 use function NixPHP\app;
 use function NixPHP\CLI\command;
 

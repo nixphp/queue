@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use NixPHP\Queue\Core\Drivers\FileDriver;
+use NixPHP\Queue\Drivers\FileDriver;
 use PHPUnit\Framework\TestCase;
 
 class FileDriverTest extends TestCase
