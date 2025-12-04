@@ -6,7 +6,16 @@ namespace NixPHP\Queue\Core;
 
 interface QueueDriverInterface
 {
+    /**
+     * @param string $class
+     * @param array  $payload
+     *
+     * @return void
+     */
     public function enqueue(string $class, array $payload): void;
-    public function dequeue(): ?array;
 
+    /**
+     * @return array|null
+     */
+    public function dequeue(): ?array;
 }

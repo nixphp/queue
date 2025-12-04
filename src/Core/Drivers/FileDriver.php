@@ -6,20 +6,32 @@ namespace NixPHP\Queue\Core\Drivers;
 
 use NixPHP\Queue\Core\QueueDeadletterDriverInterface;
 use NixPHP\Queue\Core\QueueDriverInterface;
+use Random\RandomException;
+use Throwable;
 use function NixPHP\app;
 use function NixPHP\config;
 
 class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
 {
+    public const string DEFAULT_QUEUE_PATH = '/storage/queue';
+    public const string DEFAULT_DEADLETTER_PATH = '/storage/queue/deadletter';
 
-    const string DEFAULT_QUEUE_PATH = '/storage/queue';
-    const string DEFAULT_DEADLETTER_PATH = '/storage/queue/deadletter';
-
+    /**
+     * @param string|null $queuePath
+     * @param string|null $deadLetterPath
+     */
     public function __construct(
         private readonly ?string $queuePath      = null,
         private readonly ?string $deadLetterPath = null
     ) {}
 
+    /**
+     * @param string $class
+     * @param array  $payload
+     *
+     * @return void
+     * @throws RandomException
+     */
     public function enqueue(string $class, array $payload): void
     {
         $id          = $payload['_job_id'] ?? bin2hex(random_bytes(8));
@@ -35,11 +47,13 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
 
         file_put_contents(
             sprintf('%s/%s.job', $basePath, $id),
-            $data,
-            FILE_APPEND
+            $data
         );
     }
 
+    /**
+     * @return array|null
+     */
     public function dequeue(): ?array
     {
         $defaultPath = app()->getBasePath() . self::DEFAULT_QUEUE_PATH;
@@ -61,9 +75,17 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
         return null;
     }
 
+    /**
+     * @param string     $class
+     * @param array      $payload
+     * @param Throwable  $exception
+     *
+     * @return void
+     * @throws RandomException
+     */
     public function deadletter(string $class, array $payload, \Throwable $exception): void
     {
-        $id          = $payload['_job_id'];
+        $id          = $payload['_job_id'] ?? 'rand_' . bin2hex(random_bytes(8));
         $defaultPath = app()->getBasePath() . self::DEFAULT_DEADLETTER_PATH;
         $path        = $this->deadLetterPath ?? config('queue:deadletterPath', $defaultPath);
 
@@ -83,6 +105,12 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
         ], JSON_PRETTY_PRINT));
     }
 
+    /**
+     * @param bool $keep
+     *
+     * @return int
+     * @throws RandomException
+     */
     public function retryFailed(bool $keep = false): int
     {
         $defaultPath = app()->getBasePath() . self::DEFAULT_DEADLETTER_PATH;

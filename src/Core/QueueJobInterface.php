@@ -8,5 +8,10 @@ use NixPHP\Cli\Core\Output;
 
 interface QueueJobInterface
 {
+    /**
+     * @param Output $output
+     *
+     * @return void
+     */
     public function execute(Output $output): void;
 }

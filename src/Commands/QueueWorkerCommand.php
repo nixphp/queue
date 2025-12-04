@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Queue\Core;
-
 namespace NixPHP\Queue\Commands;
 
 use NixPHP\CLI\Core\AbstractCommand;
@@ -39,7 +37,9 @@ class QueueWorkerCommand extends AbstractCommand
         $once = $input->getOption('once');
 
         do {
-            ob_flush();
+            if (ob_get_level() > 0) {
+                ob_flush();
+            }
 
             $jobData = queue()->pop();
 
