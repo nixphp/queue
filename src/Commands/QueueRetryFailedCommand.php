@@ -1,10 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace NixPHP\Queue\Commands;
 
-use NixPHP\Cli\Core\AbstractCommand;
-use NixPHP\Cli\Core\Input;
-use NixPHP\Cli\Core\Output;
+use NixPHP\CLI\Core\AbstractCommand;
+use NixPHP\CLI\Core\Input;
+use NixPHP\CLI\Core\Output;
 use NixPHP\Queue\Core\QueueDeadletterDriverInterface;
 use function NixPHP\Queue\queue;
 

@@ -1,14 +1,17 @@
 <?php
 
-namespace NixPHP\Queue\Core\Drivers;
+declare(strict_types=1);
+
+namespace NixPHP\Queue\Drivers;
 
 use NixPHP\Queue\Core\QueueDriverInterface;
+use PDO;
 
 class SQLiteDriver implements QueueDriverInterface
 {
-    protected \PDO $db;
+    protected PDO $db;
 
-    public function __construct(\PDO $db)
+    public function __construct(PDO $db)
     {
         $this->db = $db;
         $this->init();
@@ -35,14 +38,17 @@ class SQLiteDriver implements QueueDriverInterface
     public function dequeue(): ?array
     {
         $stmt = $this->db->query("SELECT * FROM queue ORDER BY id ASC LIMIT 1");
-        $job = $stmt->fetch(\PDO::FETCH_ASSOC);
+        $job  = $stmt->fetch(PDO::FETCH_ASSOC);
+
         if ($job) {
             $this->db->prepare("DELETE FROM queue WHERE id = ?")->execute([$job['id']]);
+
             return [
-                'class' => $job['class'],
+                'class'   => $job['class'],
                 'payload' => json_decode($job['payload'], true)
             ];
         }
+
         return null;
     }
 }
