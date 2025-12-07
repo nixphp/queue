@@ -9,6 +9,7 @@ use NixPHP\CLI\Core\Input;
 use NixPHP\CLI\Core\Output;
 use NixPHP\Queue\Core\QueueDeadletterDriverInterface;
 use NixPHP\Queue\Core\QueueJobInterface;
+use function NixPHP\app;
 use function NixPHP\config;
 use function NixPHP\Queue\queue;
 
@@ -61,7 +62,8 @@ class QueueWorkerCommand extends AbstractCommand
 
             try {
                 $attempts++;
-                $job = new $class($payload, $output);
+
+                $job = app()->container()->make($class, $payload);
 
                 if (!($job instanceof QueueJobInterface)) {
                     throw new \RuntimeException("$class does not implement QueueJobInterface.");
