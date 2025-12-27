@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Queue\Core;
+namespace NixPHP\Queue\Drivers;
 
 use Throwable;
 

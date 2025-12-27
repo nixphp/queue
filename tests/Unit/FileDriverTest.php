@@ -61,7 +61,7 @@ class FileDriverTest extends TestCase
 
         $this->driver->deadletter('FailingJob', $payload, $exception);
 
-        $file = $this->basePath . '/storage/queue/deadletter/abc123.job';
+        $file = $this->basePath . '/storage/queue/deadletter/default/abc123.job';
         $this->assertFileExists($file);
 
         $data = json_decode(file_get_contents($file), true);
@@ -95,7 +95,7 @@ class FileDriverTest extends TestCase
         $count = $this->driver->retryFailed(true);
         $this->assertSame(1, $count);
 
-        $path = $this->basePath . '/storage/queue/deadletter/keepme.job';
+        $path = $this->basePath . '/storage/queue/deadletter/default/keepme.job';
         $this->assertFileExists($path);
     }
 }

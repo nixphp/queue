@@ -16,7 +16,7 @@
 
 This plugin provides a lightweight job queue system with CLI worker support and no external dependencies by default.
 
-> 🧩 Part of the official NixPHP plugin collection.
+> 🧩 Part of the official NixPHP plugin collection.  
 > Use it when you want to delay tasks, run background jobs, or decouple logic – without setting up Redis or RabbitMQ.
 
 ---
@@ -25,8 +25,10 @@ This plugin provides a lightweight job queue system with CLI worker support and 
 
 * ✅ File-based queue driver (no DB or Redis required)
 * ✅ CLI worker for background processing
+* ✅ Logical **channels** (single queue, multiple job streams)
 * ✅ One-off async execution (`pushAndRun()`)
-* ✅ Deadletter handling and retry support
+* ✅ Deadletter handling **per channel**
+* ✅ Retry support (channel-aware)
 * ✅ Fully PSR-4 and event-loop friendly
 * ✅ Extendable: write your own driver for SQLite, Redis, etc.
 
@@ -36,7 +38,7 @@ This plugin provides a lightweight job queue system with CLI worker support and 
 
 ```bash
 composer require nixphp/queue
-```
+````
 
 That’s it. The plugin will be autoloaded automatically.
 
@@ -44,7 +46,7 @@ That’s it. The plugin will be autoloaded automatically.
 
 ## 🚀 Usage
 
-### ➕ Queue a job
+### ➕ Queue a job (default channel)
 
 Create a job class that implements the `QueueJobInterface`:
 
@@ -62,11 +64,30 @@ class SendWelcomeEmail implements QueueJobInterface
 }
 ```
 
-Push it to the queue:
+Push it to the default queue:
 
 ```php
 queue()->push(SendWelcomeEmail::class, ['email' => 'user@example.com']);
 ```
+
+---
+
+### 🧵 Using channels
+
+Channels are **logical job streams** inside the same queue backend.
+They allow you to separate workloads (e.g. `emails`, `mcp_out`, `notifications`)
+without running multiple queue systems.
+
+Push a job to a specific channel:
+
+```php
+queue('emails')->push(SendWelcomeEmail::class, [
+    'email' => 'user@example.com'
+]);
+```
+
+Internally, channels are handled by the queue driver.
+The `Queue` API itself remains unchanged.
 
 ---
 
@@ -75,21 +96,37 @@ queue()->push(SendWelcomeEmail::class, ['email' => 'user@example.com']);
 For **one-off asynchronous execution**, use:
 
 ```php
-queue()->pushAndRun(SendWelcomeEmail::class, ['email' => 'user@example.com']);
+queue('emails')->pushAndRun(
+    SendWelcomeEmail::class,
+    ['email' => 'user@example.com']
+);
 ```
 
-This queues the job and immediately runs it in the background via a short-lived CLI process.
+This queues the job and immediately runs it in the background via a short-lived CLI process,
+automatically passing the channel to the worker.
 
-Great for use cases like emails, logging, or notifications, without blocking the current request.
+Ideal for emails, logging, notifications, or side-effects that should not block a request.
 
 ---
 
-### 🧵 Start the worker
+## 🧵 Start the worker
 
-Run the CLI worker to process jobs continuously:
+Run the worker and listen on the default channel:
 
 ```bash
 ./bin/nix queue:worker
+```
+
+Listen on a specific channel:
+
+```bash
+./bin/nix queue:worker --channel=emails
+```
+
+Listen on multiple channels (checked in order):
+
+```bash
+./bin/nix queue:worker --channels=default,emails,mcp_out
 ```
 
 Run a single job only:
@@ -98,25 +135,35 @@ Run a single job only:
 ./bin/nix queue:worker --once
 ```
 
-> 🔹 `--once` is also used internally by `pushAndRun()` for async dispatching.
+> 🔹 `--once` is also used internally by `pushAndRun()`.
 
 ---
 
-## 💥 Deadletter & Retry
+## 💥 Deadletter & Retry (channel-aware)
 
-Failed jobs are automatically written to the `deadletter` folder (only for `FileDriver`).
+If a job fails too often, it is written to a **deadletter directory per channel**:
 
-You can retry failed jobs via:
+```
+storage/queue/deadletter/<channel>/<job-id>.job
+```
+
+Retry failed jobs for the default channel:
 
 ```bash
 ./bin/nix queue:retry-failed
+```
+
+Retry failed jobs for a specific channel:
+
+```bash
+./bin/nix queue:retry-failed --channel=emails
 ```
 
 By default, retried jobs are removed from the deadletter queue.
 Use `--keep` to retain them:
 
 ```bash
-./bin/nix queue:retry-failed --keep
+./bin/nix queue:retry-failed --channel=emails --keep
 ```
 
 ---
@@ -126,26 +173,28 @@ Use `--keep` to retain them:
 The queue system is driver-based.
 Included drivers:
 
-| Driver        | Description                             | Suitable for                  |
-| ------------- | --------------------------------------- | ----------------------------- |
-| `FileQueue`   | Stores jobs as `.job` files in a folder | Local use, no DB needed       |
-| `SQLiteQueue` | Stores jobs in SQLite table             | Shared memory across requests |
+| Driver       | Description                            | Suitable for            |
+| ------------ | -------------------------------------- | ----------------------- |
+| `FileDriver` | Stores jobs as `.job` files in folders | Local use, no DB needed |
+| *(planned)*  | SQLite / Redis / others                | Larger or shared setups |
 
-To change the driver, register it manually:
+To register a custom driver, configure it in your `bootstrap.php`:
 
 ```php
 use NixPHP\Queue\Core\Queue;
 use NixPHP\Queue\Drivers\FileDriver;
 
-app()->set(Queue::class, static fn() => new Queue(
-    new FileDriver(
-        __DIR__ . FileDriver::DEFAULT_QUEUE_PATH,
-        __DIR__ . FileDriver::DEFAULT_DEADLETTER_PATH
+app()->container()->set(Queue::class, function () {
+    return new Queue(
+        new FileDriver(
+            app()->getBasePath() . FileDriver::DEFAULT_QUEUE_PATH,
+            app()->getBasePath() . FileDriver::DEFAULT_DEADLETTER_PATH
         )
-));
+    );
+});
 ```
 
-> 📁 The file path is only relevant for `FileDriver`.
+> 📁 The file paths are only relevant for `FileDriver`.
 
 ---
 
@@ -155,7 +204,7 @@ To run the worker persistently in production, use [Supervisor](http://supervisor
 
 ```ini
 [program:nixphp-worker]
-command=php bin/nix queue:worker
+command=php bin/nix queue:worker --channels=default,emails
 directory=/path/to/your/app
 autostart=true
 autorestart=true

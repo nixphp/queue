@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace NixPHP\Queue\Drivers;
 
-use NixPHP\Queue\Core\QueueDeadletterDriverInterface;
-use NixPHP\Queue\Core\QueueDriverInterface;
+use JsonException;
 use Random\RandomException;
 use Throwable;
 use function NixPHP\app;
 use function NixPHP\config;
 use function NixPHP\guard;
 
-class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
+class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface, ChannelQueueDriverInterface
 {
     public const string DEFAULT_QUEUE_PATH = '/storage/queue';
     public const string DEFAULT_DEADLETTER_PATH = '/storage/queue/deadletter';
@@ -31,24 +30,33 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
      * @param array  $payload
      *
      * @return void
+     * @throws JsonException
      * @throws RandomException
      */
     public function enqueue(string $class, array $payload): void
     {
-        $id          = guard()->safePath($payload['_job_id'] ?? bin2hex(random_bytes(8)));
-        $defaultPath = app()->getBasePath() . self::DEFAULT_QUEUE_PATH;
-        $basePath    = $this->queuePath ?? config('queue:path', $defaultPath);
+        $this->enqueueTo(ChannelDriver::DEFAULT_CHANNEL, $class, $payload);
+    }
 
-        if (!is_dir($basePath)) {
-            mkdir($basePath, 0755, true);
-        }
+    /**
+     * @param string $channel
+     * @param string $class
+     * @param array  $payload
+     *
+     * @throws JsonException
+     * @throws RandomException
+     */
+    public function enqueueTo(string $channel, string $class, array $payload): void
+    {
+        $path = $this->channelPath($channel);
+        if (!is_dir($path)) mkdir($path, 0755, true);
 
+        $id = guard()->safePath($payload['_job_id'] ?? bin2hex(random_bytes(8)));
         $payload['_job_id'] = $id;
-        $data = json_encode(['class' => $class, 'payload' => $payload]);
 
         file_put_contents(
-            sprintf('%s/%s.job', $basePath, $id),
-            $data
+            sprintf('%s/%s.job', $path, $id),
+            json_encode(['class' => $class, 'payload' => $payload], JSON_THROW_ON_ERROR)
         );
     }
 
@@ -57,20 +65,25 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
      */
     public function dequeue(): ?array
     {
-        $defaultPath = app()->getBasePath() . self::DEFAULT_QUEUE_PATH;
-        $basePath    = $this->queuePath ?? config('queue:path', $defaultPath);
-        $files       = glob($basePath . '/*.job');
+        return $this->dequeueFrom(ChannelDriver::DEFAULT_CHANNEL);
+    }
 
-        if ($files === false || $files === []) {
-            return null;
-        }
+    /**
+     * @param string $channel
+     *
+     * @return array|null
+     */
+    public function dequeueFrom(string $channel): ?array
+    {
+        $path  = $this->channelPath($channel);
+        $files = glob($path . '/*.job');
 
-        sort($files); // FIFO
+        if (!$files) return null;
+        sort($files);
 
         foreach ($files as $file) {
             $json = file_get_contents($file);
             $data = json_decode($json, true);
-
             if ($data && isset($data['class'])) {
                 unlink($file);
                 return $data;
@@ -90,18 +103,35 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
      */
     public function deadletter(string $class, array $payload, \Throwable $exception): void
     {
-        $id          = guard()->safePath($payload['_job_id'] ?? 'rand_' . bin2hex(random_bytes(8)));
-        $defaultPath = app()->getBasePath() . self::DEFAULT_DEADLETTER_PATH;
-        $path        = $this->deadLetterPath ?? config('queue:deadletterPath', $defaultPath);
+        // Backwards compatible: default channel
+        $this->deadletterTo(ChannelDriver::DEFAULT_CHANNEL, $class, $payload, $exception);
+    }
+
+    /**
+     * @param string    $channel
+     * @param string    $class
+     * @param array     $payload
+     * @param Throwable $exception
+     *
+     * @return void
+     * @throws RandomException
+     */
+    public function deadletterTo(string $channel, string $class, array $payload, \Throwable $exception): void
+    {
+        $path = $this->deadletterChannelPath($channel);
 
         if (!is_dir($path)) {
             mkdir($path, 0755, true);
         }
 
+        $id = guard()->safePath($payload['_job_id'] ?? ('rand_' . bin2hex(random_bytes(8))));
+        $payload['_job_id'] = $id;
+
         $file = $path . '/' . $id . '.job';
 
         file_put_contents($file, json_encode([
             'id'        => $id,
+            'channel'   => $channel,
             'class'     => $class,
             'payload'   => $payload,
             'error'     => $exception->getMessage(),
@@ -110,22 +140,30 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
         ], JSON_PRETTY_PRINT));
     }
 
+
     /**
      * @param bool $keep
      *
      * @return int
-     * @throws RandomException
      */
     public function retryFailed(bool $keep = false): int
     {
-        $defaultPath = app()->getBasePath() . self::DEFAULT_DEADLETTER_PATH;
-        $path        = $this->deadLetterPath ?? config('queue:deadletterPath', $defaultPath);
+        return $this->retryFailedFrom(ChannelDriver::DEFAULT_CHANNEL, $keep);
+    }
 
-        if (!is_dir($path)) {
-            return 0;
-        }
+    /**
+     * @param string $channel
+     * @param bool   $keep
+     *
+     * @return int
+     */
+    public function retryFailedFrom(string $channel, bool $keep = false): int
+    {
+        $path = $this->deadletterChannelPath($channel);
 
-        $files = glob($path . '/*.job');
+        if (!is_dir($path)) return 0;
+
+        $files = glob($path . '/*.job') ?: [];
         $count = 0;
 
         foreach ($files as $file) {
@@ -138,7 +176,8 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
             $payload = $data['payload'];
             unset($payload['_attempts'], $payload['error'], $payload['trace'], $payload['failed_at']);
 
-            $this->enqueue($data['class'], $payload);
+            // Important: back into the same channel
+            $this->enqueueTo($channel, $data['class'], $payload);
             $count++;
 
             if (!$keep) {
@@ -147,6 +186,35 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
         }
 
         return $count;
+    }
+
+    /**
+     * @param string $channel
+     *
+     * @return string
+     */
+    private function deadletterChannelPath(string $channel): string
+    {
+        $channel = guard()->safePath($channel);
+
+        $default = app()->getBasePath() . self::DEFAULT_DEADLETTER_PATH;
+        $base    = $this->deadLetterPath ?? config('queue:deadletterPath', $default);
+
+        return rtrim($base, '/') . '/' . $channel;
+    }
+
+    /**
+     * @param string $channel
+     *
+     * @return string
+     */
+    private function channelPath(string $channel): string
+    {
+        $channel  = guard()->safePath($channel);
+        $basePath = app()->getBasePath() . self::DEFAULT_QUEUE_PATH;
+        $path     = $this->queuePath ?? config('queue:path', $basePath);
+
+        return rtrim($path, '/') . '/' . $channel;
     }
 
 }
