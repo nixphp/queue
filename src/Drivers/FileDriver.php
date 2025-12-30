@@ -105,8 +105,6 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
             $corrupted = $path . '/corrupted';
             if (!is_dir($corrupted)) mkdir($corrupted, 0755, true);
             @rename($claimed, $corrupted . '/' . basename($file));
-
-            return null;
         }
 
         return null;

@@ -13,8 +13,8 @@ class ChannelDriver implements QueueDriverInterface, QueueDeadletterDriverInterf
     const string DEFAULT_CHANNEL = 'default';
 
     public function __construct(
-        private ChannelQueueDriverInterface $driver,
-        private string $channel
+        private readonly ChannelQueueDriverInterface $driver,
+        private readonly string                      $channel
     ) {}
 
     public function enqueue(string $class, array $payload): void
@@ -35,7 +35,7 @@ class ChannelDriver implements QueueDriverInterface, QueueDeadletterDriverInterf
             return;
         }
 
-        // fallback (ohne channel support): global deadletter
+        // fallback (without channel support): global deadletter
         if ($this->driver instanceof QueueDeadletterDriverInterface) {
             $this->driver->deadletter($class, $payload, $exception);
         }
