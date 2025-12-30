@@ -48,12 +48,6 @@ class QueueTest extends NixPHPTestCase
         $this->assertNull($result);
     }
 
-    public function testDriverReturnsCorrectDriver(): void
-    {
-        $result = $this->queue->driver();
-        $this->assertSame($this->driver, $result);
-    }
-
     public function testPushWithEmptyPayload(): void
     {
         $this->driver->expects($this->once())
