@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NixPHP\Queue\Drivers;
 
 use JsonException;
+use NixPHP\Queue\Decorators\Drivers\ChannelDriver;
+use NixPHP\Queue\Decorators\Drivers\ChannelQueueDriverInterface;
 use Random\RandomException;
 use Throwable;
 use function NixPHP\app;
@@ -54,10 +56,15 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
         $id = guard()->safePath($payload['_job_id'] ?? bin2hex(random_bytes(8)));
         $payload['_job_id'] = $id;
 
-        file_put_contents(
-            sprintf('%s/%s.job', $path, $id),
-            json_encode(['class' => $class, 'payload' => $payload], JSON_THROW_ON_ERROR)
-        );
+        $tmp   = sprintf('%s/%s.job.tmp', $path, $id);
+        $final = sprintf('%s/%s.job', $path, $id);
+
+        file_put_contents($tmp, json_encode([
+            'class'   => $class,
+            'payload' => $payload
+        ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+
+        rename($tmp, $final); // Prevent processing of corrupted files
     }
 
     /**
@@ -76,22 +83,35 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
     public function dequeueFrom(string $channel): ?array
     {
         $path  = $this->channelPath($channel);
-        $files = glob($path . '/*.job');
+        $files = glob($path . '/*.job') ?: [];
+        if ($files === []) return null;
 
-        if (!$files) return null;
         sort($files);
 
         foreach ($files as $file) {
-            $json = file_get_contents($file);
-            $data = json_decode($json, true);
-            if ($data && isset($data['class'])) {
-                unlink($file);
+            $claimed = $file . '.lock';
+
+            if (!@rename($file, $claimed)) continue; // Claim job
+
+            $json = @file_get_contents($claimed);
+            $data = $json ? json_decode($json, true) : null;
+
+            if (is_array($data) && isset($data['class'])) {
+                @unlink($claimed);
                 return $data;
             }
+
+            // Probably corrupted, move to /corrupted for later investigation
+            $corrupted = $path . '/corrupted';
+            if (!is_dir($corrupted)) mkdir($corrupted, 0755, true);
+            @rename($claimed, $corrupted . '/' . basename($file));
+
+            return null;
         }
 
         return null;
     }
+
 
     /**
      * @param string     $class
@@ -137,7 +157,7 @@ class FileDriver implements QueueDriverInterface, QueueDeadletterDriverInterface
             'error'     => $exception->getMessage(),
             'trace'     => $exception->getTraceAsString(),
             'failed_at' => date('c'),
-        ], JSON_PRETTY_PRINT));
+        ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
     }
 
 

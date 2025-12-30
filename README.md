@@ -23,14 +23,14 @@ This plugin provides a lightweight job queue system with CLI worker support and 
 
 ## 📦 Features
 
-* ✅ File-based queue driver (no DB or Redis required)
-* ✅ CLI worker for background processing
-* ✅ Logical **channels** (single queue, multiple job streams)
-* ✅ One-off async execution (`pushAndRun()`)
-* ✅ Deadletter handling **per channel**
-* ✅ Retry support (channel-aware)
-* ✅ Fully PSR-4 and event-loop friendly
-* ✅ Extendable: write your own driver for SQLite, Redis, etc.
+* File-based queue driver (no DB or Redis required)
+* CLI worker for background processing
+* Logical **channels** (single queue, multiple job streams)
+* One-off async execution (`pushAndRun()`)
+* Deadletter handling **per channel**
+* Retry support (channel-aware)
+* Fully PSR-4 and event-loop friendly
+* Extendable: write your own driver for SQLite, Redis, etc.
 
 ---
 
@@ -44,9 +44,9 @@ That’s it. The plugin will be autoloaded automatically.
 
 ---
 
-## 🚀 Usage
+## Usage
 
-### ➕ Queue a job (default channel)
+### Queue a job (default channel)
 
 Create a job class that implements the `QueueJobInterface`:
 
@@ -87,7 +87,6 @@ queue('emails')->push(SendWelcomeEmail::class, [
 ```
 
 Internally, channels are handled by the queue driver.
-The `Queue` API itself remains unchanged.
 
 ---
 
@@ -109,42 +108,42 @@ Ideal for emails, logging, notifications, or side-effects that should not block 
 
 ---
 
-## 🧵 Start the worker
+## Start the worker
 
-Run the worker and listen on the default channel:
+Run the consuming worker and listen on the default channel:
 
 ```bash
-./bin/nix queue:worker
+./bin/nix queue:consume
 ```
 
 Listen on a specific channel:
 
 ```bash
-./bin/nix queue:worker --channel=emails
+./bin/nix queue:consume --channel=emails
 ```
 
 Listen on multiple channels (checked in order):
 
 ```bash
-./bin/nix queue:worker --channels=default,emails,mcp_out
+./bin/nix queue:consume --channels=default,emails,mcp_out
 ```
 
 Run a single job only:
 
 ```bash
-./bin/nix queue:worker --once
+./bin/nix queue:consume --once
 ```
 
 > 🔹 `--once` is also used internally by `pushAndRun()`.
 
 ---
 
-## 💥 Deadletter & Retry (channel-aware)
+## Deadletter & Retry (channel-aware)
 
 If a job fails too often, it is written to a **deadletter directory per channel**:
 
 ```
-storage/queue/deadletter/<channel>/<job-id>.job
+/path/to/app/storage/queue/deadletter/<channel>/<job-id>.job
 ```
 
 Retry failed jobs for the default channel:
@@ -204,7 +203,7 @@ To run the worker persistently in production, use [Supervisor](http://supervisor
 
 ```ini
 [program:nixphp-worker]
-command=php bin/nix queue:worker --channels=default,emails
+command=php bin/nix queue:consume --channels=default,emails
 directory=/path/to/your/app
 autostart=true
 autorestart=true

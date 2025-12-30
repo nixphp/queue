@@ -7,8 +7,8 @@ namespace NixPHP\Queue\Commands;
 use NixPHP\CLI\Core\AbstractCommand;
 use NixPHP\CLI\Core\Input;
 use NixPHP\CLI\Core\Output;
+use NixPHP\Decorators\AutoResolvingContainer;
 use NixPHP\Queue\Core\QueueJobInterface;
-use NixPHP\Queue\Drivers\ChannelDeadletterDriverInterface;
 use NixPHP\Queue\Drivers\QueueDeadletterDriverInterface;
 use Throwable;
 use function NixPHP\app;
@@ -16,9 +16,9 @@ use function NixPHP\config;
 use function NixPHP\log;
 use function NixPHP\Queue\queue;
 
-class QueueWorkerCommand extends AbstractCommand
+class QueueConsumeCommand extends AbstractCommand
 {
-    public const string NAME = 'queue:worker';
+    public const string NAME = 'queue:consume';
 
     private const int SLEEP_DELAY = 1;
 
@@ -28,6 +28,7 @@ class QueueWorkerCommand extends AbstractCommand
             ->setTitle('NixPHP Queue Worker')
             ->setDescription('Run the queue worker')
             ->addOption('once')
+            ->addOption('verbose', 'v')
             ->addOption('channel', null, true)
             ->addOption('channels', null, true)
             ->addOption('max-jobs', null, true)
@@ -46,9 +47,12 @@ class QueueWorkerCommand extends AbstractCommand
         $maxJobs     = $input->getOption('max-jobs') ?? null;
         $maxRuntime  = $input->getOption('max-runtime') ?? null;
         $timeStarted = time();
+        $isVerbose   = $input->getOption('verbose');
 
         $once     = $input->getOption('once');
         $channels = $this->resolveChannels($input);
+
+        $container = app()->container();
 
         do {
             if (ob_get_level() > 0) {
@@ -56,17 +60,15 @@ class QueueWorkerCommand extends AbstractCommand
             }
 
             if ($maxJobs && $jobCount >= $maxJobs) {
-                $msg = 'NixPHP Queue Worker: Max jobs reached.';
-                $output->writeLine('NixPHP Queue Worker: Quitting.');
-                $output->writeLine($msg);
+                $msg = 'Max jobs reached... Quitting.';
+                if ($isVerbose) $output->writeLine($msg);
                 log()->info($msg);
                 break;
             }
 
-            if ($maxRuntime && ($timeStarted + $maxRuntime) >= time()) {
-                $msg = 'NixPHP Queue Worker: Max runtime reached.';
-                $output->writeLine($msg);
-                $output->writeLine('NixPHP Queue Worker: Quitting.');
+            if ($maxRuntime && time() >= ($timeStarted + $maxRuntime)) {
+                $msg = 'Max runtime reached... Quitting.';
+                if ($isVerbose) $output->writeLine($msg);
                 log()->info($msg);
                 break;
             }
@@ -75,7 +77,7 @@ class QueueWorkerCommand extends AbstractCommand
 
             if (!$jobData) {
                 if ($once) return static::SUCCESS;
-                echo "Waiting for new job...\r";
+                if ($isVerbose) echo "Waiting for new job...\r";
                 sleep(static::SLEEP_DELAY);
                 continue;
             }
@@ -85,7 +87,8 @@ class QueueWorkerCommand extends AbstractCommand
             $attempts = $payload['_attempts'] ?? 0;
 
             if (!class_exists($class)) {
-                $output->writeLine("⚠ Job class $class not found.");
+                if ($isVerbose) $output->writeLine("⚠ Job class $class not found.");
+                log()->warning("Job class $class not found.");
                 continue;
             }
 
@@ -94,7 +97,12 @@ class QueueWorkerCommand extends AbstractCommand
             try {
                 $attempts++;
 
-                $job = app()->container()->make($class, $payload);
+                if ($container instanceof AutoResolvingContainer) {
+                    $job = app()->container()->make($class, $payload);
+                } else {
+                    $job = new $class($payload);
+                }
+
 
                 if (!($job instanceof QueueJobInterface)) {
                     throw new \RuntimeException("$class does not implement QueueJobInterface.");
@@ -102,15 +110,17 @@ class QueueWorkerCommand extends AbstractCommand
 
                 $date = date('Y-m-d H:i:s');
 
-                $output->writeLine("🕛 Job $class started at $date (attempt $attempts)...");
+                if ($isVerbose) $output->writeLine("🕛 Job $class started at $date (attempt $attempts)...");
 
                 $start = microtime(true);
                 $job->execute($output);
-                $output->writeEmptyLine();
-                $output->writeLine("✔ Job $class done in " . number_format(microtime(true) - $start, 5) . "s.");
+                if ($isVerbose) $output->writeEmptyLine();
+                if ($isVerbose) $output->writeLine("✔ Job $class done in " . number_format(microtime(true) - $start, 5) . "s.");
+
+                $jobCount++;
 
             } catch (Throwable $e) {
-                $output->writeLine("⚠ Job $class failed: {$e->getMessage()} (attempt $attempts)");
+                if ($isVerbose) $output->writeLine("⚠ Job $class failed: {$e->getMessage()} (attempt $attempts)");
 
                 if ($attempts >= config('queue:max_attempts', 3)) {
                     $driver = $q->driver();
@@ -119,18 +129,19 @@ class QueueWorkerCommand extends AbstractCommand
                         $driver->deadletter($class, $payload, $e);
                     }
 
-                    $output->writeLine("❌ Giving up on $class after $attempts attempts.");
-                    log()->error('NixPHP Worker: Error still persisted after ' . $attempts . ' attempts: ' . $e->getMessage());
+                    if ($isVerbose) $output->writeLine("❌ Giving up on $class after $attempts attempts.");
+                    log()->error('Error still persisted after ' . $attempts . ' attempts: ' . $e->getMessage());
+                    $jobCount++;
                 } else {
                     $payload['_attempts'] = $attempts;
                     sleep(config('queue:retry_delay', 5));
                     $q->push($class, $payload);
-                    $output->writeLine("🔁 Retrying $class...");
+                    if ($isVerbose) $output->writeLine("🔁 Retrying $class...");
                 }
             }
 
-            $output->writeLine('---');
-            $output->writeEmptyLine();
+            if ($isVerbose) $output->writeLine('---');
+            if ($isVerbose) $output->writeEmptyLine();
 
             if ($once) return static::SUCCESS;
 

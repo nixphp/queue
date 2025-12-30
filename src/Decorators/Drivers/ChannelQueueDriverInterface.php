@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace NixPHP\Queue\Drivers;
+namespace NixPHP\Queue\Decorators\Drivers;
+
+use NixPHP\Queue\Drivers\QueueDriverInterface;
 
 interface ChannelQueueDriverInterface extends QueueDriverInterface
 {
