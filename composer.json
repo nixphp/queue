@@ -23,7 +23,6 @@
   },
   "require": {
     "php": ">=8.3",
-    "ext-pdo": "*",
     "nixphp/framework": "^0.1.0",
     "nixphp/cli": "^0.1.0"
   },

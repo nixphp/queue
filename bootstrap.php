@@ -3,14 +3,14 @@
 declare(strict_types=1);
 
 use NixPHP\Queue\Commands\QueueRetryFailedCommand;
-use NixPHP\Queue\Commands\QueueWorkerCommand;
+use NixPHP\Queue\Commands\QueueConsumeCommand;
 use NixPHP\Queue\Core\Queue;
 use NixPHP\Queue\Drivers\FileDriver;
 use function NixPHP\app;
 use function NixPHP\CLI\command;
 use function NixPHP\guard;
 
-command()->add(QueueWorkerCommand::class);
+command()->add(QueueConsumeCommand::class);
 command()->add(QueueRetryFailedCommand::class);
 
 app()->container()->set(Queue::class, function() {

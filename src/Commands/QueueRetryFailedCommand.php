@@ -7,7 +7,7 @@ namespace NixPHP\Queue\Commands;
 use NixPHP\CLI\Core\AbstractCommand;
 use NixPHP\CLI\Core\Input;
 use NixPHP\CLI\Core\Output;
-use NixPHP\Queue\Core\QueueDeadletterDriverInterface;
+use NixPHP\Queue\Drivers\QueueDeadletterDriverInterface;
 use function NixPHP\Queue\queue;
 
 class QueueRetryFailedCommand extends AbstractCommand

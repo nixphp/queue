@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NixPHP\Queue\Core;
 
+use NixPHP\Queue\Drivers\QueueDriverInterface;
 use function NixPHP\app;
 
 class Queue
@@ -57,7 +58,7 @@ class Queue
         $this->push($class, $payload);
 
         $basePath = escapeshellarg(app()->getBasePath());
-        $command = 'cd ' . $basePath . ' && ./vendor/bin/nix queue:worker --once';
+        $command = 'cd ' . $basePath . ' && ./vendor/bin/nix queue:consume --once';
 
         // Fire off a background PHP process to handle the next job
         exec($command . ' > /dev/null 2>&1 &');

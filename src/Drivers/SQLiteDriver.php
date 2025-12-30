@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NixPHP\Queue\Drivers;
 
-use NixPHP\Queue\Core\QueueDriverInterface;
 use PDO;
 
 class SQLiteDriver implements QueueDriverInterface
