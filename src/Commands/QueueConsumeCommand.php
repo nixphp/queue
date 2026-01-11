@@ -52,10 +52,6 @@ class QueueConsumeCommand extends AbstractCommand
         $once     = $input->getOption('once');
         $channels = $this->resolveChannels($input);
 
-        if (!empty($channels)) {
-
-        }
-
         $container = app()->container();
 
         do {
