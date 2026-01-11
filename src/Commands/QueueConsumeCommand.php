@@ -9,6 +9,7 @@ use NixPHP\CLI\Core\Input;
 use NixPHP\CLI\Core\Output;
 use NixPHP\Decorators\AutoResolvingContainer;
 use NixPHP\Queue\Core\QueueJobInterface;
+use NixPHP\Queue\Decorators\Drivers\ChannelDeadletterDriverInterface;
 use NixPHP\Queue\Drivers\QueueDeadletterDriverInterface;
 use Throwable;
 use function NixPHP\app;
@@ -124,8 +125,10 @@ class QueueConsumeCommand extends AbstractCommand
                 if ($attempts >= config('queue:max_attempts', 3)) {
                     $driver = $q->driver();
 
-                    if ($driver instanceof QueueDeadletterDriverInterface) {
+                    if ($driver instanceof ChannelDeadletterDriverInterface) {
                         $driver->deadletterTo($channelUsed, $class, $payload, $e);
+                    } else if ($driver instanceof QueueDeadletterDriverInterface) {
+                        $driver->deadletter($class, $payload, $e);
                     }
 
                     if ($isVerbose) $output->writeLine("❌ Giving up on $class after $attempts attempts.");
