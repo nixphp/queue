@@ -52,6 +52,10 @@ class QueueConsumeCommand extends AbstractCommand
         $once     = $input->getOption('once');
         $channels = $this->resolveChannels($input);
 
+        if (!empty($channels)) {
+
+        }
+
         $container = app()->container();
 
         do {
@@ -77,7 +81,7 @@ class QueueConsumeCommand extends AbstractCommand
 
             if (!$jobData) {
                 if ($once) return static::SUCCESS;
-                if ($isVerbose) echo "Waiting for new job...\r";
+                if ($isVerbose) echo " Waiting for new job...\r";
                 sleep(static::SLEEP_DELAY);
                 continue;
             }
@@ -103,7 +107,6 @@ class QueueConsumeCommand extends AbstractCommand
                     $job = new $class($payload);
                 }
 
-
                 if (!($job instanceof QueueJobInterface)) {
                     throw new \RuntimeException("$class does not implement QueueJobInterface.");
                 }
@@ -126,7 +129,7 @@ class QueueConsumeCommand extends AbstractCommand
                     $driver = $q->driver();
 
                     if ($driver instanceof QueueDeadletterDriverInterface) {
-                        $driver->deadletter($class, $payload, $e);
+                        $driver->deadletterTo($channelUsed, $class, $payload, $e);
                     }
 
                     if ($isVerbose) $output->writeLine("❌ Giving up on $class after $attempts attempts.");
