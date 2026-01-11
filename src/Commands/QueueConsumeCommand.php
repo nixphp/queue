@@ -9,6 +9,7 @@ use NixPHP\CLI\Core\Input;
 use NixPHP\CLI\Core\Output;
 use NixPHP\Decorators\AutoResolvingContainer;
 use NixPHP\Queue\Core\QueueJobInterface;
+use NixPHP\Queue\Decorators\Drivers\ChannelDeadletterDriverInterface;
 use NixPHP\Queue\Drivers\QueueDeadletterDriverInterface;
 use Throwable;
 use function NixPHP\app;
@@ -77,7 +78,7 @@ class QueueConsumeCommand extends AbstractCommand
 
             if (!$jobData) {
                 if ($once) return static::SUCCESS;
-                if ($isVerbose) echo "Waiting for new job...\r";
+                if ($isVerbose) echo " Waiting for new job...\r";
                 sleep(static::SLEEP_DELAY);
                 continue;
             }
@@ -103,7 +104,6 @@ class QueueConsumeCommand extends AbstractCommand
                     $job = new $class($payload);
                 }
 
-
                 if (!($job instanceof QueueJobInterface)) {
                     throw new \RuntimeException("$class does not implement QueueJobInterface.");
                 }
@@ -125,7 +125,9 @@ class QueueConsumeCommand extends AbstractCommand
                 if ($attempts >= config('queue:max_attempts', 3)) {
                     $driver = $q->driver();
 
-                    if ($driver instanceof QueueDeadletterDriverInterface) {
+                    if ($driver instanceof ChannelDeadletterDriverInterface) {
+                        $driver->deadletterTo($channelUsed, $class, $payload, $e);
+                    } else if ($driver instanceof QueueDeadletterDriverInterface) {
                         $driver->deadletter($class, $payload, $e);
                     }
 
