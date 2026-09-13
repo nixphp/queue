@@ -1,5 +1,6 @@
 {
   "name": "nixphp/queue",
+  "abandoned": "naf/queue",
   "description": "NixPHP Queue Plugin for asynchronous jobs.",
   "minimum-stability": "stable",
   "license": "MIT",
